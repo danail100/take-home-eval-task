@@ -8,6 +8,7 @@ import sys
 from evalkit.compare import ComparabilityError, compare
 from evalkit.grade import grade
 from evalkit.graders import DEFAULT_GRADERS
+from evalkit.graders.llm_judge import CACHE_ENV_VAR, DEFAULT_CACHE_PATH, resolve_cache_path
 from evalkit.infer import infer
 from evalkit.report import write_report
 
@@ -43,6 +44,13 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="evalkit", description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
 
+    def judge_cache(sp):
+        sp.add_argument(
+            "--judge-cache", metavar="PATH",
+            help=f"file for cached judge verdicts (default: ${CACHE_ENV_VAR} if set, "
+                 f"else {DEFAULT_CACHE_PATH} in the current directory)",
+        )
+
     def common(sp):
         sp.add_argument("--tasks", default="tasks")
         sp.add_argument("--fixtures", default="fixtures")
@@ -61,6 +69,7 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("run_dir")
     sp.add_argument("--graders", default=",".join(DEFAULT_GRADERS))
     sp.add_argument("--judge", default="auto", choices=["auto", "mock", "claude"])
+    judge_cache(sp)
 
     sp = sub.add_parser("compare", help="stage 3: compare two graded runs and write a report")
     common(sp)
@@ -77,6 +86,7 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--trials", type=int, default=3)
     sp.add_argument("--provider", default="scripted", choices=["scripted", "anthropic"])
     sp.add_argument("--judge", default="auto", choices=["auto", "mock", "claude"])
+    judge_cache(sp)
     sp.add_argument("--allow-mismatch", action="store_true")
     sp.add_argument("--out", default="reports")
     sp.add_argument("--gate", action="store_true")
@@ -87,17 +97,22 @@ def main(argv: list[str] | None = None) -> int:
         rd = infer(args.config, args.tasks, args.fixtures, args.runs_dir, args.trials, args.provider, args.run_id, args.concurrency)
         print(f"wrote {rd}")
     elif args.cmd == "grade":
-        g = grade(args.run_dir, args.tasks, args.graders.split(","), args.judge)
+        names = args.graders.split(",")
+        cache = resolve_cache_path(args.judge_cache)
+        g = grade(args.run_dir, args.tasks, names, args.judge, cache)
         print(f"wrote {g}")
+        if "judge" in names:
+            print(f"judge cache: {cache}")
     elif args.cmd == "compare":
         return _do_compare(args, args.run_a, args.run_b)
     elif args.cmd == "demo":
+        cache = resolve_cache_path(args.judge_cache)
         dirs = []
         for cfg in (args.a, args.b):
             print(f"[infer] {cfg} ({args.provider}, {args.trials} trials)")
             rd = infer(cfg, args.tasks, args.fixtures, args.runs_dir, args.trials, args.provider)
-            print(f"[grade] {rd}")
-            grade(rd, args.tasks, DEFAULT_GRADERS, args.judge)
+            print(f"[grade] {rd} (judge cache: {cache})")
+            grade(rd, args.tasks, DEFAULT_GRADERS, args.judge, cache)
             dirs.append(rd)
         print("[compare]")
         return _do_compare(args, *dirs)

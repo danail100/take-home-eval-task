@@ -25,6 +25,14 @@ from evalkit.tasks import Task
 from evalkit.traceview import TrialTrace
 
 PROMPT_VERSION = "judge-v1"
+DEFAULT_CACHE_PATH = ".cache/judge.jsonl"
+CACHE_ENV_VAR = "EVALKIT_JUDGE_CACHE"
+
+
+def resolve_cache_path(path: str | Path | None = None) -> Path:
+    """Absolute judge cache path: `path` if given, else $EVALKIT_JUDGE_CACHE, else
+    .cache/judge.jsonl under the current working directory."""
+    return Path(path or os.environ.get(CACHE_ENV_VAR) or DEFAULT_CACHE_PATH).expanduser().resolve()
 JUDGE_PROMPT = """You are grading the answer of an internal helpdesk assistant.
 
 <question>
@@ -72,12 +80,13 @@ class JudgeGrader(Grader):
         self,
         backend: str = "auto",
         model: str = "claude-opus-5-5",
-        cache_path: str | Path = ".cache/judge.jsonl",
+        cache_path: str | Path | None = None,
         client: Any = None,
     ):
         self.backend = resolve_backend(backend)
         self.model = model if self.backend == "claude" else "heuristic"
-        self.cache_path = Path(cache_path)
+        # Where verdicts are cached. Not part of config(): it does not affect verdicts.
+        self.cache_path = resolve_cache_path(cache_path)
         self._lock = threading.Lock()
         self._cache = self._load_cache()
         self._client = client

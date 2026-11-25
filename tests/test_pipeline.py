@@ -1,6 +1,7 @@
 """End-to-end: infer -> grade -> compare, plus the comparability and staleness guarantees."""
 
 import hashlib
+import json
 import re
 import shutil
 from pathlib import Path
@@ -123,6 +124,17 @@ def test_report_task_set_hash_reflects_regraded_definitions(tmp_path, runs):
     md = render_markdown(c)
     assert f"| task set | {new_hash} | {new_hash} |" in md
     assert f"| task set | {old_hash} | {old_hash} |" not in md
+
+
+def test_grade_writes_judge_verdicts_to_explicit_cache_path(tmp_path, runs):
+    a = shutil.copytree(runs[0], tmp_path / "a")
+    cache = tmp_path / "elsewhere" / "judge.jsonl"
+    g1 = grade(a, ROOT / "tasks", judge_backend="mock", judge_cache=cache)
+    rows = [json.loads(line) for line in cache.read_text().splitlines()]
+    assert rows and all({"key", "score", "reason"} <= set(r) for r in rows)
+    # The cache location is not part of the grader fingerprint.
+    g2 = grade(a, ROOT / "tasks", judge_backend="mock", judge_cache=tmp_path / "other.jsonl")
+    assert g1.name == g2.name
 
 
 def test_grade_refuses_stale_traces_when_task_input_changes(tmp_path, runs):

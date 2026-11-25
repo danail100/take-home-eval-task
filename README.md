@@ -82,7 +82,7 @@ export ANTHROPIC_API_KEY=...
 python -m evalkit demo --provider anthropic --judge claude
 ```
 
-The configs map `baseline` to `claude-haiku-5-5` and `candidate` to `claude-sonnet-5-5`. The judge uses `claude-opus-5-5`. Judge verdicts are cached in `.cache/judge.jsonl`. A run of 8 tasks × 3 trials × 2 variants makes roughly 100–150 model calls.
+The configs map `baseline` to `claude-haiku-5-5` and `candidate` to `claude-sonnet-5-5`. The judge uses `claude-opus-5-5`. Judge verdicts are cached in `.cache/judge.jsonl`. To keep one cache wherever you run from, pass `--judge-cache PATH` to `grade` or `demo`, or set `EVALKIT_JUDGE_CACHE`. A run of 8 tasks × 3 trials × 2 variants makes roughly 100–150 model calls.
 
 ## Sending traces to Langfuse (or any OTLP backend)
 

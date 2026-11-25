@@ -27,6 +27,7 @@ def grade(
     tasks_dir: str | Path = "tasks",
     grader_names: list[str] | None = None,
     judge_backend: str = "auto",
+    judge_cache: str | Path | None = None,
 ) -> Path:
     run_dir = Path(run_dir)
     manifest = json.loads((run_dir / "manifest.json").read_text())
@@ -46,7 +47,9 @@ def grade(
             )
         tasks[tid] = all_tasks[tid]
 
-    graders = build_graders(grader_names or DEFAULT_GRADERS, judge_backend=judge_backend)
+    graders = build_graders(
+        grader_names or DEFAULT_GRADERS, judge_backend=judge_backend, judge_cache=judge_cache
+    )
     traces = load_traces(run_dir)
     fp = task_set_fingerprint(tasks)
 
