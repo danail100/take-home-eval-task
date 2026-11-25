@@ -27,6 +27,11 @@ class BudgetGrader(Grader):
         return bool(task.budget)
 
     def grade(self, task: Task, trace: TrialTrace) -> GradeResult:
+        unknown = sorted(set(task.budget) - set(_LIMITS))
+        if unknown:
+            raise ValueError(
+                f"unknown budget limit(s) {unknown} on task {task.id!r}; allowed: {sorted(_LIMITS)}"
+            )
         m = trace.metrics()
         checks = []
         for key, limit in task.budget.items():

@@ -3,9 +3,10 @@
 Each task has two hashes:
   * inference_hash: covers only what the agent sees (id + input). If it changes, the
     stored traces are stale and inference has to be re-run.
-  * definition_hash: covers the whole task, expectations included. If only this one
-    changes, the stored traces can be re-graded without new inference, but runs graded
-    against different definitions are not comparable.
+  * definition_hash: covers the whole task, expectations included (excluding `rubric.mock`,
+    which is only for the offline mock judge). If only this one changes, the stored traces
+    can be re-graded without new inference, but runs graded against different definitions
+    are not comparable.
 """
 
 from __future__ import annotations
@@ -45,7 +46,18 @@ class Task:
 
     @property
     def definition_hash(self) -> str:
-        return _hash(self.raw)
+        data = self.raw
+        if isinstance(data.get("rubric"), dict) and "mock" in data["rubric"]:
+            data = {**data, "rubric": {k: v for k, v in data["rubric"].items() if k != "mock"}}
+        return _hash(data)
+
+
+ALLOWED_BUDGET_KEYS = frozenset({
+    "max_tool_calls",
+    "max_total_tokens",
+    "max_latency_s",
+    "max_cost_usd",
+})
 
 
 def load_tasks(tasks_dir: str | Path) -> dict[str, Task]:
@@ -53,6 +65,11 @@ def load_tasks(tasks_dir: str | Path) -> dict[str, Task]:
     for path in sorted(Path(tasks_dir).glob("*.yaml")):
         raw = yaml.safe_load(path.read_text())
         task = Task(**raw, raw=raw)
+        unknown_budget = sorted(set(task.budget) - ALLOWED_BUDGET_KEYS)
+        if unknown_budget:
+            raise ValueError(
+                f"unknown budget limit(s) {unknown_budget} in {path}; allowed: {sorted(ALLOWED_BUDGET_KEYS)}"
+            )
         if task.id in tasks:
             raise ValueError(f"duplicate task id {task.id!r} in {path}")
         tasks[task.id] = task

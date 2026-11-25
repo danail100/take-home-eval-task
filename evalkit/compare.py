@@ -91,10 +91,13 @@ class Check:
 
 
 class ComparabilityError(RuntimeError):
-    def __init__(self, checks: list[Check]):
+    def __init__(self, checks: list[Check], *, hint: str = "(pass --allow-mismatch to compare anyway)"):
         self.checks = checks
         failed = "\n".join(f"  - {c.name}: {c.detail}" for c in checks if c.status == "fail")
-        super().__init__(f"runs are not comparable:\n{failed}\n(pass --allow-mismatch to compare anyway)")
+        msg = f"runs are not comparable:\n{failed}"
+        if hint:
+            msg += f"\n{hint}"
+        super().__init__(msg)
 
 
 def check_comparability(a: RunData, b: RunData) -> tuple[list[Check], set[str]]:
@@ -139,7 +142,30 @@ def check_comparability(a: RunData, b: RunData) -> tuple[list[Check], set[str]]:
 
     ha, hb = a.manifest["assistant"]["config_hash"], b.manifest["assistant"]["config_hash"]
     if ha == hb:
-        checks.append(Check("assistant config", "warn", f"identical ({ha}): this is an A/A run, so differences are noise"))
+        ca = a.manifest["assistant"].get("code") or {}
+        cb = b.manifest["assistant"].get("code") or {}
+        sha_a, sha_b = ca.get("git_sha"), cb.get("git_sha")
+        dirty_a, dirty_b = ca.get("dirty"), cb.get("dirty")
+        if sha_a != sha_b:
+            checks.append(
+                Check(
+                    "assistant config",
+                    "info",
+                    f"config identical ({ha}) but code version differs (A={sha_a}, B={sha_b})",
+                )
+            )
+        elif dirty_a or dirty_b:
+            checks.append(
+                Check(
+                    "assistant config",
+                    "warn",
+                    f"config identical ({ha}) but working tree was dirty (A={dirty_a}, B={dirty_b}), so code may differ",
+                )
+            )
+        else:
+            checks.append(
+                Check("assistant config", "warn", f"identical ({ha}): this is an A/A run, so differences are noise")
+            )
     else:
         checks.append(Check("assistant config", "info", f"A={ha} B={hb} (expected to differ; see diff below)"))
 
@@ -208,12 +234,17 @@ def task_stats(run: RunData, task_ids: set[str]) -> dict[str, TaskStats]:
                 continue
             q = [g for g in grades if g["dimension"] in QUALITY_DIMENSIONS]
             e = [g for g in grades if g["dimension"] == "efficiency"]
+            failures = [(g["grader"], g["reason"]) for g in grades if not g["passed"]]
+            if trace.status != "ok":
+                failures.append(("harness", f"agent status is {trace.status!r}"))
+            if not q:
+                failures.append(("harness", "no quality graders applied"))
             outcomes.append(
                 TrialOutcome(
                     trial=k,
-                    quality_pass=all(g["passed"] for g in q),
+                    quality_pass=trace.status == "ok" and bool(q) and all(g["passed"] for g in q),
                     efficiency_pass=all(g["passed"] for g in e),
-                    failures=[(g["grader"], g["reason"]) for g in grades if not g["passed"]],
+                    failures=failures,
                     metrics=trace.metrics(),
                     answer=trace.final_answer,
                 )
@@ -297,6 +328,9 @@ def compare(
         if c.status == "fail":
             c.status = "warn"
             c.detail += " [overridden with --allow-mismatch]"
+    if not comparable:
+        checks.append(Check("comparable tasks", "fail", "no comparable tasks in common between runs"))
+        raise ComparabilityError(checks, hint="")
 
     defs = load_tasks(tasks_dir)
     sa, sb = task_stats(a, comparable), task_stats(b, comparable)
@@ -310,7 +344,7 @@ def compare(
         cr, lr = _ratio(tb.cost, ta.cost), _ratio(tb.latency, ta.latency)
         if cr > 1 + tol or lr > 1 + tol:
             eff = "costlier"
-        elif cr < 1 - tol and lr <= 1 + tol:
+        elif cr < 1 - tol or lr < 1 - tol:
             eff = "cheaper"
         else:
             eff = "same"
@@ -327,7 +361,7 @@ def compare(
     lat_r = _ratio(agg_b["latency_p50_s"], agg_a["latency_p50_s"])
     if cost_r > 1 + tol or lat_r > 1 + tol:
         efficiency = "costlier"
-    elif cost_r < 1 - tol and lat_r <= 1 + tol:
+    elif cost_r < 1 - tol or lat_r < 1 - tol:
         efficiency = "cheaper"
     else:
         efficiency = "unchanged"

@@ -18,6 +18,7 @@ import json
 import os
 import threading
 from pathlib import Path
+from typing import Any
 
 from evalkit.graders.base import Grader, GradeResult
 from evalkit.tasks import Task
@@ -67,13 +68,19 @@ class JudgeGrader(Grader):
     dimension = "correctness"
     PASS_THRESHOLD = 4  # out of 5
 
-    def __init__(self, backend: str = "auto", model: str = "claude-opus-5-5", cache_path: str | Path = ".cache/judge.jsonl"):
+    def __init__(
+        self,
+        backend: str = "auto",
+        model: str = "claude-opus-5-5",
+        cache_path: str | Path = ".cache/judge.jsonl",
+        client: Any = None,
+    ):
         self.backend = resolve_backend(backend)
         self.model = model if self.backend == "claude" else "heuristic"
         self.cache_path = Path(cache_path)
         self._lock = threading.Lock()
         self._cache = self._load_cache()
-        self._client = None
+        self._client = client
 
     def config(self) -> dict:
         return {"backend": self.backend, "model": self.model, "prompt": PROMPT_VERSION}
@@ -97,8 +104,12 @@ class JudgeGrader(Grader):
     # -- backends -----------------------------------------------------------------------
 
     def _judge(self, task: Task, answer: str) -> tuple[int, str]:
+        rubric_key = task.rubric if self.backend == "mock" else task.rubric.get("criteria")
         key = hashlib.sha256(
-            json.dumps([self.backend, self.model, PROMPT_VERSION, task.rubric, task.input, answer]).encode()
+            json.dumps(
+                [self.backend, self.model, PROMPT_VERSION, rubric_key, task.input, answer],
+                sort_keys=True,
+            ).encode()
         ).hexdigest()
         with self._lock:
             if key in self._cache:
@@ -123,12 +134,14 @@ class JudgeGrader(Grader):
         return 2, "does not match the expected content"
 
     def _claude(self, task: Task, answer: str) -> tuple[int, str]:
-        import anthropic
+        with self._lock:
+            if self._client is None:
+                import anthropic
 
-        if self._client is None:
-            self._client = anthropic.Anthropic()
+                self._client = anthropic.Anthropic()
+            client = self._client
         prompt = JUDGE_PROMPT.format(question=task.input, criteria=task.rubric["criteria"], answer=answer)
-        response = self._client.messages.create(
+        response = client.messages.create(
             model=self.model,
             max_tokens=1024,
             messages=[{"role": "user", "content": prompt}],

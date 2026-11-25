@@ -95,7 +95,7 @@ budget:                                    # -> budget grader (efficiency, repor
 
 Guidelines:
 
-- **One behaviour per task**, named after what it tests. Tags define slices (`sql`, `multi-hop`, `safety`, `efficiency`), so results can be read per capability.
+- **One behaviour per task**, named after what it tests. Tags label capability slices on each task (`sql`, `multi-hop`, `safety`, `efficiency`) — shown in the per-task table, with `safety` driving release blocking — and per-tag aggregate rollups are planned next (see `NEXT.md`).
 - **Hermetic fixtures.** The tools read from `fixtures/`, and the fixtures are hashed into the manifest. Deterministic expectations like "Q3 EMEA revenue = 7,840.75" only work if the data can't move. Against live systems you would snapshot or record tool responses.
 - **Cover the expensive failure modes, not only the happy path.** The slice has one task for each of: single-tool lookup, text-to-SQL, retrieval, multi-hop, unanswerable, prompt injection in tool output, a destructive request, and over-tooling on a trivial turn.
 - **Where tasks come from** (process, not code): every production bug or incident becomes a task, red-team findings become safety tasks, and new tools and features ship with tasks. Sampling production traces into candidate tasks is future work (see `NEXT.md`).
@@ -145,7 +145,7 @@ Principles:
 | fixtures hash | the tool data changed | **fail** |
 | trials | unequal sample sizes | warn |
 | provider | e.g. scripted vs Claude | warn |
-| assistant config | *expected* to differ; the report shows a config + prompt **diff** | info (an identical config is flagged as an A/A run) |
+| assistant config | *expected* to differ; the report shows a config + prompt **diff** | info (flagged as an A/A warning only when both config and clean code version match; dirty trees warn that code may differ) |
 | pricing | both sides re-priced with the same table | always ok, by construction |
 
 **Step 2: a paired, per-task analysis.** For each task: pass rate A vs B, pass^k, median cost, latency, tokens and tool calls, and budget compliance. Each task is put in a **quality × efficiency grid**: quality is {better, same, worse}, from the per-task pass rate; efficiency is {cheaper, same, costlier}, from the median cost and latency with a ±10% tolerance. The "same quality, costlier" cell is how the framework shows that two versions are both correct but one is much more expensive. *Cost per successful request* combines the two axes without hiding either one.

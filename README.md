@@ -15,7 +15,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
 python -m evalkit demo      # infer + grade + compare baseline vs candidate, offline, ~5s
-python -m pytest            # 15 tests
+python -m pytest            # 33 tests
 ```
 
 `demo` prints a summary and writes `reports/<A>__vs__<B>.md` and `.html`:
@@ -38,7 +38,7 @@ configs/        the two assistant configurations under evaluation: baseline.yaml
 tasks/          8 eval tasks (YAML)
 fixtures/       hermetic data for the tools: docs, SQLite seed, tickets
 evalkit/        the eval framework: infer -> grade -> compare/report
-tests/          grader unit tests, pipeline/comparability tests, Claude adapter test (offline)
+tests/          agent, grader, compare, pipeline/comparability, and Claude adapter tests (offline)
 ```
 
 **Toy agent and tools:** `search_docs` (keyword search over policy docs), `run_sql` (read-only SQLite), and `lookup_ticket`.

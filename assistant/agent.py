@@ -33,6 +33,7 @@ class Agent:
         self.model = model
         self.toolbox = toolbox
         self.tool_specs = toolbox.specs(config.tools)
+        self._enabled_tools = set(config.tools)
         self.capture_content = (
             t.capture_content_default() if capture_content is None else capture_content
         )
@@ -164,6 +165,8 @@ class Agent:
             if self.capture_content:
                 span.set_attribute(t.TOOL_ARGS, json.dumps(arguments))
             try:
+                if name not in self._enabled_tools:
+                    raise ToolError(f"tool not enabled: {name}")
                 content, is_error = self.toolbox.call(name, arguments), False
             except ToolError as e:
                 content, is_error = json.dumps({"error": str(e)}), True

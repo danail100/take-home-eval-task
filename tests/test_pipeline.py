@@ -11,7 +11,7 @@ import yaml
 from evalkit.compare import ComparabilityError, compare
 from evalkit.grade import StaleTracesError, grade
 from evalkit.infer import infer
-from evalkit.report import write_report
+from evalkit.report import render_markdown, write_report
 from evalkit.traceview import load_traces
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -85,6 +85,27 @@ def test_compare_refuses_changed_task_definitions_unless_allowed(tmp_path, runs)
         compare(a, b, tasks_dir=tasks)
     c = compare(a, b, tasks_dir=tasks, allow_mismatch=True)
     assert "ticket_status" not in {t.task_id for t in c.tasks}
+
+
+def test_report_task_set_hash_reflects_regraded_definitions(tmp_path, runs):
+    tasks = shutil.copytree(ROOT / "tasks", tmp_path / "tasks")
+    p = tasks / "ticket_status.yaml"
+    spec = yaml.safe_load(p.read_text())
+    spec["expected"]["contains"].append("Bulk export")
+    p.write_text(yaml.safe_dump(spec))
+
+    a = shutil.copytree(runs[0], tmp_path / "a")
+    b = shutil.copytree(runs[1], tmp_path / "b")
+    for r in (a, b):
+        grade(r, tasks, judge_backend="mock")
+
+    c = compare(a, b, tasks_dir=tasks)
+    old_hash = c.a.manifest["tasks"]["definition_set_hash"]
+    new_hash = c.a.grades_meta["task_definition_set_hash"]
+    assert new_hash != old_hash
+    md = render_markdown(c)
+    assert f"| task set | {new_hash} | {new_hash} |" in md
+    assert f"| task set | {old_hash} | {old_hash} |" not in md
 
 
 def test_grade_refuses_stale_traces_when_task_input_changes(tmp_path, runs):

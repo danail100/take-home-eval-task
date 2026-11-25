@@ -164,19 +164,18 @@ def render_markdown(c: Comparison) -> str:
         L += ["No failures.", ""]
 
     L += ["## Runs", "", "| | A | B |", "|---|---|---|"]
-    ma, mb = c.a.manifest, c.b.manifest
     for label, fn in [
-        ("run id", lambda m: m["run_id"]),
-        ("created", lambda m: m["created_at"]),
-        ("provider / model", lambda m: f"{m['provider']} / {m['assistant']['model']}"),
-        ("config hash", lambda m: m["assistant"]["config_hash"]),
-        ("code version", lambda m: f"{m['assistant']['code']['git_sha'] or 'n/a'}{' (dirty)' if m['assistant']['code']['dirty'] else ''}"),
-        ("trials", lambda m: m["trials"]),
-        ("task set", lambda m: m["tasks"]["definition_set_hash"]),
-        ("fixtures", lambda m: m["fixtures_hash"]),
+        ("run id", lambda r: r.manifest["run_id"]),
+        ("created", lambda r: r.manifest["created_at"]),
+        ("provider / model", lambda r: f"{r.manifest['provider']} / {r.manifest['assistant']['model']}"),
+        ("config hash", lambda r: r.manifest["assistant"]["config_hash"]),
+        ("code version", lambda r: f"{r.manifest['assistant']['code']['git_sha'] or 'n/a'}{' (dirty)' if r.manifest['assistant']['code']['dirty'] else ''}"),
+        ("trials", lambda r: r.manifest["trials"]),
+        ("task set", lambda r: r.grades_meta["task_definition_set_hash"]),
+        ("fixtures", lambda r: r.manifest["fixtures_hash"]),
+        ("grading", lambda r: r.grades_meta["grades_id"]),
     ]:
-        L.append(f"| {label} | {fn(ma)} | {fn(mb)} |")
-    L.append(f"| grading | {c.a.grades_meta['grades_id']} | {c.b.grades_meta['grades_id']} |")
+        L.append(f"| {label} | {fn(c.a)} | {fn(c.b)} |")
     L += [""]
     return "\n".join(L)
 
