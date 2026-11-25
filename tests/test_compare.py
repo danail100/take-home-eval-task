@@ -12,9 +12,11 @@ from evalkit.compare import (
     ComparabilityError,
     RunData,
     check_comparability,
+    classify_efficiency,
     compare,
     task_stats,
 )
+from evalkit.report import markdown_to_html, render_markdown
 from evalkit.telemetry import RUN_ID, SEED, TASK_ID, TRIAL
 from evalkit.traceview import ChatView, TrialTrace
 
@@ -104,10 +106,12 @@ def _write_run_dir(
     (rd / "grades").mkdir(parents=True)
     manifest = {
         "run_id": run_id,
+        "created_at": "2026-01-01T00:00:00Z",
         "fixtures_hash": "fix1",
         "trials": 1,
         "provider": "scripted",
         "assistant": {
+            "model": "scripted-small",
             "config_hash": config_hash,
             "config": {},
             "code": {"git_sha": "abc123", "dirty": False},
@@ -120,6 +124,7 @@ def _write_run_dir(
         "grader_set_hash": "gs1",
         "graders": [{"name": "outcome", "version": "1"}],
         "task_definition_hashes": task_hashes,
+        "task_definition_set_hash": "ts1",
     }
     (rd / "grades" / "g1.meta.json").write_text(json.dumps(meta))
 
@@ -294,11 +299,84 @@ def test_compare_classifies_latency_improvement_at_same_cost_as_cheaper(tmp_path
     assert c.recommendation == "SHIP"
 
 
-def test_compare_classifies_cheaper_cost_but_slower_latency_as_costlier(tmp_path):
-    a = _write_run_dir(tmp_path, "a", task_hashes={"t1": "h1"}, latency_s=1.0, input_tokens=2000, config_hash="cfg-a")
-    b = _write_run_dir(tmp_path, "b", task_hashes={"t1": "h1"}, latency_s=1.5, input_tokens=1000, config_hash="cfg-b")
+def test_compare_classifies_cost_rise_at_same_latency_as_costlier(tmp_path):
+    a = _write_run_dir(tmp_path, "a", task_hashes={"t1": "h1"}, latency_s=1.0, input_tokens=1000, config_hash="cfg-a")
+    b = _write_run_dir(tmp_path, "b", task_hashes={"t1": "h1"}, latency_s=1.0, input_tokens=2000, config_hash="cfg-b")
 
     c = compare(a, b, tasks_dir=ROOT / "tasks")
     assert c.tasks[0].efficiency == "costlier"
     assert c.efficiency == "costlier"
     assert c.recommendation == "REVIEW"
+    assert any("costlier" in r for r in c.reasons)
+
+
+def test_compare_classifies_cheaper_cost_but_slower_latency_as_mixed(tmp_path):
+    a = _write_run_dir(tmp_path, "a", task_hashes={"t1": "h1"}, latency_s=1.0, input_tokens=2000, config_hash="cfg-a")
+    b = _write_run_dir(tmp_path, "b", task_hashes={"t1": "h1"}, latency_s=1.5, input_tokens=1000, config_hash="cfg-b")
+
+    c = compare(a, b, tasks_dir=ROOT / "tasks")
+    assert c.tasks[0].cost_ratio < 0.9 and c.tasks[0].latency_ratio > 1.1
+    assert c.tasks[0].efficiency == "mixed"
+    assert c.efficiency == "mixed"
+    assert c.recommendation == "REVIEW"
+    assert any("p50 latency rose and mean cost fell" in r for r in c.reasons)
+
+
+def test_compare_classifies_costlier_but_faster_as_mixed(tmp_path):
+    a = _write_run_dir(tmp_path, "a", task_hashes={"t1": "h1"}, latency_s=2.0, input_tokens=1000, config_hash="cfg-a")
+    b = _write_run_dir(tmp_path, "b", task_hashes={"t1": "h1"}, latency_s=1.0, input_tokens=1300, config_hash="cfg-b")
+
+    c = compare(a, b, tasks_dir=ROOT / "tasks")
+    assert c.tasks[0].efficiency == "mixed"
+    assert c.efficiency == "mixed"
+    assert c.recommendation == "REVIEW"
+    assert any("mean cost rose and p50 latency fell" in r for r in c.reasons)
+
+
+@pytest.mark.parametrize(
+    "cost_r, lat_r, expected",
+    [
+        (1.0, 1.0, "same"),
+        (1.05, 0.95, "same"),  # both within tolerance
+        (1.3, 1.0, "costlier"),
+        (1.0, 1.3, "costlier"),
+        (1.3, 1.3, "costlier"),
+        (0.7, 1.0, "cheaper"),
+        (1.0, 0.5, "cheaper"),
+        (0.7, 0.5, "cheaper"),
+        (1.3, 0.5, "mixed"),
+        (0.7, 1.5, "mixed"),
+        (float("inf"), 0.5, "mixed"),
+    ],
+)
+def test_classify_efficiency(cost_r, lat_r, expected):
+    assert classify_efficiency(cost_r, lat_r, 0.10) == expected
+
+
+def test_classify_efficiency_uses_custom_same_label():
+    assert classify_efficiency(1.0, 1.0, 0.10, same="unchanged") == "unchanged"
+    assert classify_efficiency(1.3, 0.5, 0.10, same="unchanged") == "mixed"
+
+
+def test_mixed_efficiency_does_not_override_block(tmp_path):
+    a = _write_run_dir(tmp_path, "a", task_hashes={"t1": "h1"}, latency_s=2.0, input_tokens=1000, config_hash="cfg-a")
+    b = _write_run_dir(tmp_path, "b", task_hashes={"t1": "h1"}, latency_s=1.0, input_tokens=1300, config_hash="cfg-b")
+    grades = b / "grades" / "g1.jsonl"
+    grades.write_text(grades.read_text().replace('"passed": true', '"passed": false'))
+
+    c = compare(a, b, tasks_dir=ROOT / "tasks")
+    assert c.efficiency == "mixed"
+    assert c.quality == "regressed"
+    assert c.recommendation == "BLOCK"
+    assert not any("mixed" in r for r in c.reasons)
+
+
+def test_report_grid_has_mixed_column(tmp_path):
+    a = _write_run_dir(tmp_path, "a", task_hashes={"t1": "h1"}, latency_s=2.0, input_tokens=1000, config_hash="cfg-a")
+    b = _write_run_dir(tmp_path, "b", task_hashes={"t1": "h1"}, latency_s=1.0, input_tokens=1300, config_hash="cfg-b")
+
+    c = compare(a, b, tasks_dir=ROOT / "tasks")
+    md = render_markdown(c)
+    assert "| quality \\ efficiency | cheaper | same | costlier | mixed |" in md
+    assert "| **same** | · | · | · | `t1` |" in md
+    assert "<th>mixed</th>" in markdown_to_html(md, "t")

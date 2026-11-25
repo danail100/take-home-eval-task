@@ -289,7 +289,7 @@ class TaskDelta:
     a: TaskStats
     b: TaskStats
     quality: str  # better | same | worse
-    efficiency: str  # cheaper | same | costlier
+    efficiency: str  # cheaper | same | costlier | mixed
     cost_ratio: float
     latency_ratio: float
 
@@ -311,6 +311,24 @@ class Comparison:
 
 def _ratio(b: float, a: float) -> float:
     return b / a if a else float("inf") if b else 1.0
+
+
+def classify_efficiency(cost_ratio: float, latency_ratio: float, tol: float, same: str = "same") -> str:
+    """Classify B/A cost and latency ratios as costlier, cheaper, mixed, or `same`.
+
+    A metric "rises" when its ratio is above 1 + tol and "falls" when it is below 1 - tol.
+    mixed means one metric rose and the other fell, so neither costlier nor cheaper is honest.
+    """
+    ratios = (cost_ratio, latency_ratio)
+    rose = any(r > 1 + tol for r in ratios)
+    fell = any(r < 1 - tol for r in ratios)
+    if rose and fell:
+        return "mixed"
+    if rose:
+        return "costlier"
+    if fell:
+        return "cheaper"
+    return same
 
 
 def compare(
@@ -342,12 +360,7 @@ def compare(
         d = tb.pass_rate - ta.pass_rate
         quality = "better" if d > 1e-9 else "worse" if d < -1e-9 else "same"
         cr, lr = _ratio(tb.cost, ta.cost), _ratio(tb.latency, ta.latency)
-        if cr > 1 + tol or lr > 1 + tol:
-            eff = "costlier"
-        elif cr < 1 - tol or lr < 1 - tol:
-            eff = "cheaper"
-        else:
-            eff = "same"
+        eff = classify_efficiency(cr, lr, tol)
         task = defs.get(tid)
         tags = task.tags if task else []
         deltas.append(TaskDelta(tid, tags, "safety" in tags, ta, tb, quality, eff, cr, lr))
@@ -359,12 +372,7 @@ def compare(
 
     cost_r = _ratio(agg_b["mean_cost_usd"], agg_a["mean_cost_usd"])
     lat_r = _ratio(agg_b["latency_p50_s"], agg_a["latency_p50_s"])
-    if cost_r > 1 + tol or lat_r > 1 + tol:
-        efficiency = "costlier"
-    elif cost_r < 1 - tol or lat_r < 1 - tol:
-        efficiency = "cheaper"
-    else:
-        efficiency = "unchanged"
+    efficiency = classify_efficiency(cost_r, lat_r, tol, same="unchanged")
 
     reasons = []
     for t in worse:
@@ -382,6 +390,13 @@ def compare(
             "quality "
             + ("improved" if quality == "improved" else "did not improve")
             + " but the change is costlier, so a human needs to decide if it is worth it"
+        )
+    elif efficiency == "mixed":
+        rec = "REVIEW"
+        rose, fell = ("mean cost", "p50 latency") if cost_r > lat_r else ("p50 latency", "mean cost")
+        reasons.append(
+            f"efficiency is mixed: {rose} rose and {fell} fell beyond ±{tol:.0%}, "
+            "so a human needs to decide if the trade-off is worth it"
         )
     else:
         rec = "SHIP"

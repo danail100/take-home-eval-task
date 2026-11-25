@@ -14,7 +14,7 @@ from evalkit.compare import Comparison
 
 _ICON = {"ok": "✅", "warn": "⚠️", "fail": "❌", "info": "ℹ️"}
 _REC = {
-    "SHIP": "🟢 SHIP: no quality regression and not costlier",
+    "SHIP": "🟢 SHIP: no quality regression and no efficiency loss",
     "REVIEW": "🟡 REVIEW: quality held, but there is an efficiency trade-off",
     "BLOCK": "🔴 BLOCK: quality regressed",
 }
@@ -119,14 +119,15 @@ def render_markdown(c: Comparison) -> str:
         "## Quality × efficiency, per task",
         "",
         "Each task goes in one cell. Quality is the per-task pass rate, B vs A. Efficiency is the "
-        f"median cost and latency, with ±{c.thresholds['efficiency_tolerance']:.0%} counted as the same.",
+        f"median cost and latency, with ±{c.thresholds['efficiency_tolerance']:.0%} counted as the same; "
+        "mixed means one of them rose beyond that and the other fell beyond it.",
         "",
-        "| quality \\ efficiency | cheaper | same | costlier |",
-        "|---|---|---|---|",
+        "| quality \\ efficiency | cheaper | same | costlier | mixed |",
+        "|---|---|---|---|---|",
     ]
     for q in ("better", "same", "worse"):
         cells = []
-        for e in ("cheaper", "same", "costlier"):
+        for e in ("cheaper", "same", "costlier", "mixed"):
             ids = [f"`{t.task_id}`" for t in c.tasks if t.quality == q and t.efficiency == e]
             cells.append(", ".join(ids) or "·")
         L.append(f"| **{q}** | " + " | ".join(cells) + " |")
