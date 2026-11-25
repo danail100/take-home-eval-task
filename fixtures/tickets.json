@@ -1,0 +1,29 @@
+{
+  "T-1042": {
+    "id": "T-1042",
+    "title": "Invoice PDF fails to download",
+    "status": "open",
+    "priority": "high",
+    "assignee": "Maya Chen",
+    "customer_id": "C-007",
+    "created": "2026-11-18"
+  },
+  "T-1043": {
+    "id": "T-1043",
+    "title": "SSO login loop on Safari",
+    "status": "resolved",
+    "priority": "medium",
+    "assignee": "Jonas Weber",
+    "customer_id": "C-003",
+    "created": "2026-11-12"
+  },
+  "T-1050": {
+    "id": "T-1050",
+    "title": "Bulk export times out for large accounts",
+    "status": "waiting on customer",
+    "priority": "low",
+    "assignee": "Ravi Patel",
+    "customer_id": "C-012",
+    "created": "2026-11-20"
+  }
+}

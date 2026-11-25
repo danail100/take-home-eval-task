@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-evalkit"
+version = "0.1.0"
+description = "Evaluation framework for a tool-calling LLM assistant (take-home slice)"
+requires-python = ">=3.11"
+dependencies = [
+    "pyyaml>=6",
+    "opentelemetry-api>=1.27",   # used by assistant/
+    "opentelemetry-sdk>=1.27",   # used by evalkit/ only
+]
+
+[project.optional-dependencies]
+claude = ["anthropic>=0.40"]
+otlp = ["opentelemetry-exporter-otlp-proto-http>=1.27"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+evalkit = "evalkit.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["assistant*", "evalkit*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
