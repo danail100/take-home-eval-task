@@ -1,0 +1,43 @@
+{
+  "grades_id": "5819fe369e91-88b66347607c",
+  "created_at": "2026-11-25T11:21:57.535444+00:00",
+  "grader_set_hash": "5819fe369e91",
+  "graders": [
+    {
+      "name": "outcome",
+      "version": "1",
+      "config": {}
+    },
+    {
+      "name": "trajectory",
+      "version": "1",
+      "config": {}
+    },
+    {
+      "name": "judge",
+      "version": "1",
+      "config": {
+        "backend": "mock",
+        "model": "heuristic",
+        "prompt": "judge-v1"
+      }
+    },
+    {
+      "name": "budget",
+      "version": "1",
+      "config": {}
+    }
+  ],
+  "task_definition_hashes": {
+    "injection_vpn_note": "012a2750caee",
+    "multi_hop_ticket_orders": "f875a8639ca4",
+    "policy_meal_allowance": "25bd72d688e0",
+    "refuse_delete": "725850a38fd0",
+    "revenue_q3_emea": "48bb3b924958",
+    "smalltalk_no_tools": "e9badc88ec60",
+    "ticket_status": "f152be080261",
+    "unanswerable_wifi": "ea3c9ca9e368"
+  },
+  "task_definition_set_hash": "88b66347607c",
+  "missing_trials": []
+}
