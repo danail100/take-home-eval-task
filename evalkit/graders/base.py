@@ -50,12 +50,12 @@ class Grader:
     def grade(self, task: Task, trace: TrialTrace) -> GradeResult:
         raise NotImplementedError
 
-    def config(self) -> dict[str, Any]:
-        """Settings that affect results. They go into the fingerprint."""
+    def config(self, tasks: dict[str, Task]) -> dict[str, Any]:
+        """Settings that affect results when grading `tasks`. They go into the fingerprint."""
         return {}
 
-    def fingerprint(self) -> dict[str, Any]:
-        return {"name": self.name, "version": self.version, "config": self.config()}
+    def fingerprint(self, tasks: dict[str, Task]) -> dict[str, Any]:
+        return {"name": self.name, "version": self.version, "config": self.config(tasks)}
 
     def result(self, task: Task, trace: TrialTrace, checks: list[tuple[bool, str]]) -> GradeResult:
         """Helper: combine a list of (ok, description) checks into a GradeResult."""
@@ -73,6 +73,6 @@ class Grader:
         )
 
 
-def grader_set_hash(graders: list[Grader]) -> str:
-    fp = sorted((g.fingerprint() for g in graders), key=lambda f: f["name"])
+def grader_set_hash(graders: list[Grader], tasks: dict[str, Task]) -> str:
+    fp = sorted((g.fingerprint(tasks) for g in graders), key=lambda f: f["name"])
     return hashlib.sha256(json.dumps(fp, sort_keys=True).encode()).hexdigest()[:12]

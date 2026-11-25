@@ -131,7 +131,7 @@ Principles:
 
 - **Graders are pure functions over stored traces.** `evalkit grade` never runs the agent. A new grader, a fixed expectation, or a different judge model costs at most the judge's tokens. A grader needs new inference only if it needs a signal the spans don't have yet. The fix is then to add that signal to the instrumentation once (§5).
 - **Prefer deterministic graders.** Use the judge only where string matching would be brittle. The judge's backend, model and prompt version are part of the grader fingerprint, so runs graded by different judges are never comparable. Judge verdicts are cached by `(backend, model, prompt version, rubric, input, answer)`, so re-grading and A/A runs are free.
-- **Calibrate the judge** before trusting it: keep a small human-labelled set per rubric, measure agreement, and re-check whenever the judge model or prompt changes. In this slice the offline "mock" judge is a keyword heuristic. It exists only so the pipeline runs without a key, and it gets its own fingerprint.
+- **Calibrate the judge** before trusting it: keep a small human-labelled set per rubric, measure agreement, and re-check whenever the judge model or prompt changes. In this slice the offline "mock" judge is a keyword heuristic. It exists only so the pipeline runs without a key, and it gets its own fingerprint, which also covers the tasks' `rubric.mock` phrases.
 - **A trial passes on quality** when every correctness and process grader passes. Budget results never change the quality verdict. A missing trace or a crashed agent counts as a failure, never as a skip.
 
 ## 7. Comparing two versions

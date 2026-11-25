@@ -62,7 +62,7 @@ def grade(
     if missing:
         print(f"warning: {len(missing)} trials have no trace: {missing}")
 
-    gs_hash = grader_set_hash(graders)
+    gs_hash = grader_set_hash(graders, tasks)
     out_id = f"{gs_hash}-{fp['definition_set_hash']}"
     grades_dir = run_dir / "grades"
     grades_dir.mkdir(exist_ok=True)
@@ -73,7 +73,7 @@ def grade(
         "grades_id": out_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "grader_set_hash": gs_hash,
-        "graders": [g.fingerprint() for g in graders],
+        "graders": [g.fingerprint(tasks) for g in graders],
         "task_definition_hashes": fp["definition_hashes"],
         "task_definition_set_hash": fp["definition_set_hash"],
         "missing_trials": missing,

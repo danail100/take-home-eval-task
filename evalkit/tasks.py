@@ -4,7 +4,8 @@ Each task has two hashes:
   * inference_hash: covers only what the agent sees (id + input). If it changes, the
     stored traces are stale and inference has to be re-run.
   * definition_hash: covers the whole task, expectations included (excluding `rubric.mock`,
-    which is only for the offline mock judge). If only this one changes, the stored traces
+    which is only for the offline mock judge; the mock judge's grader fingerprint covers
+    those phrases instead, so editing them still breaks comparability). If only this one changes, the stored traces
     can be re-graded without new inference, but runs graded against different definitions
     are not comparable.
 """

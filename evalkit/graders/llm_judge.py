@@ -5,7 +5,7 @@ There are two backends:
   * mock:   an offline heuristic that uses the rubric's `mock.pass_if_any` / `fail_if_any`
             phrases. It exists only so the pipeline runs without an API key, and it is
             recorded as a different judge, so mock-graded and claude-graded runs never
-            count as comparable.
+            count as comparable. Its fingerprint also covers the tasks' mock phrases.
 
 Verdicts are cached on disk, keyed by (backend, model, prompt version, rubric, input,
 answer). Re-grading a run, or grading a second run that gives the same answer, costs nothing.
@@ -82,8 +82,14 @@ class JudgeGrader(Grader):
         self._cache = self._load_cache()
         self._client = client
 
-    def config(self) -> dict:
-        return {"backend": self.backend, "model": self.model, "prompt": PROMPT_VERSION}
+    def config(self, tasks: dict[str, Task]) -> dict:
+        cfg = {"backend": self.backend, "model": self.model, "prompt": PROMPT_VERSION}
+        if self.backend == "mock":
+            # Mock verdicts depend on the rubric's mock phrases, which Task.definition_hash
+            # leaves out, so they have to be part of the judge's fingerprint instead.
+            phrases = {tid: t.rubric.get("mock", {}) for tid, t in sorted(tasks.items()) if self.applies(t)}
+            cfg["mock_phrases"] = hashlib.sha256(json.dumps(phrases, sort_keys=True).encode()).hexdigest()[:12]
+        return cfg
 
     def applies(self, task: Task) -> bool:
         return bool(task.rubric)

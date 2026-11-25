@@ -5,6 +5,7 @@ import json
 import sys
 import threading
 import time
+from pathlib import Path
 from types import SimpleNamespace as NS
 
 import pytest
@@ -95,8 +96,8 @@ def test_judge_backend_changes_grader_set_hash():
 
     mock = [OutcomeGrader(), JudgeGrader(backend="mock")]
     real = [OutcomeGrader(), JudgeGrader(backend="claude")]  # no API call until grade()
-    assert grader_set_hash(mock) != grader_set_hash(real)
-    assert grader_set_hash(mock) == grader_set_hash([OutcomeGrader(), JudgeGrader(backend="mock")])
+    assert grader_set_hash(mock, {}) != grader_set_hash(real, {})
+    assert grader_set_hash(mock, {}) == grader_set_hash([OutcomeGrader(), JudgeGrader(backend="mock")], {})
 
 
 class _FakeJudgeMessages:
@@ -275,3 +276,15 @@ def test_claude_judge_cache_ignores_rubric_mock_changes(tmp_path):
     r3 = j.grade(t3, trace("short answer"))
     assert r3.score == pytest.approx(2 / 4)
     assert len(fake.messages.requests) == 2
+
+
+def test_judge_fingerprint_tracks_mock_phrases_only_for_mock_backend():
+    tasks = load_tasks(Path(__file__).resolve().parent.parent / "tasks")
+    edited = {**tasks}
+    t = tasks["policy_meal_allowance"]
+    raw = {**t.raw, "rubric": {**t.rubric, "mock": {"pass_if_any": ["70 EUR"], "fail_if_any": []}}}
+    edited[t.id] = Task(**raw, raw=raw)
+    assert edited[t.id].definition_hash == t.definition_hash
+    mock, real = JudgeGrader(backend="mock"), JudgeGrader(backend="claude")
+    assert mock.fingerprint(tasks) != mock.fingerprint(edited)
+    assert real.fingerprint(tasks) == real.fingerprint(edited) == real.fingerprint({})

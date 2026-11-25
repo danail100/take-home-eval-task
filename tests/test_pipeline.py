@@ -87,6 +87,23 @@ def test_compare_refuses_changed_task_definitions_unless_allowed(tmp_path, runs)
     assert "ticket_status" not in {t.task_id for t in c.tasks}
 
 
+def test_compare_refuses_changed_mock_judge_phrases(tmp_path, runs):
+    # rubric.mock is left out of the task definition hash, so the mock judge's
+    # fingerprint has to catch edits to it.
+    tasks = shutil.copytree(ROOT / "tasks", tmp_path / "tasks")
+    p = tasks / "policy_meal_allowance.yaml"
+    spec = yaml.safe_load(p.read_text())
+    spec["rubric"]["mock"]["pass_if_any"] = ["70 EUR per day"]
+    p.write_text(yaml.safe_dump(spec))
+
+    a = shutil.copytree(runs[0], tmp_path / "a")
+    b = shutil.copytree(runs[1], tmp_path / "b")
+    shutil.rmtree(b / "grades")
+    grade(b, tasks, judge_backend="mock")
+    with pytest.raises(ComparabilityError, match=r"grader set: graders differ: \['judge'\]"):
+        compare(a, b, tasks_dir=tasks)
+
+
 def test_report_task_set_hash_reflects_regraded_definitions(tmp_path, runs):
     tasks = shutil.copytree(ROOT / "tasks", tmp_path / "tasks")
     p = tasks / "ticket_status.yaml"
