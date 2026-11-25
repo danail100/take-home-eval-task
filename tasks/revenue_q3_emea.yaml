@@ -1,0 +1,13 @@
+id: revenue_q3_emea
+description: Text-to-SQL aggregate with a date range. Small models often forget the year filter.
+input: What was total revenue in EMEA for Q3 2026?
+tags: [sql, single-tool]
+expected:
+  numeric: {value: 7840.75, tolerance: 0.01}
+trajectory:
+  required_tools: [run_sql]
+  sql_read_only: true
+budget:
+  max_tool_calls: 1
+  max_latency_s: 0.6
+  max_cost_usd: 0.005

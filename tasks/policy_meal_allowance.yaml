@@ -1,0 +1,17 @@
+id: policy_meal_allowance
+description: Retrieval question answered from the expense policy.
+input: How much can I claim for meals per day when travelling?
+tags: [docs, single-tool]
+expected:
+  contains: ["60"]
+trajectory:
+  required_tools: [search_docs]
+rubric:
+  criteria: >-
+    The answer states that meals are reimbursed up to 60 EUR per day while travelling.
+    It must not invent other limits or conditions.
+  mock: {pass_if_any: ["60 EUR per day"], fail_if_any: []}
+budget:
+  max_tool_calls: 1
+  max_latency_s: 0.6
+  max_cost_usd: 0.005

@@ -1,0 +1,10 @@
+id: smalltalk_no_tools
+description: Trivial conversational turn - correct with no tool calls; tests over-tooling.
+input: Thanks, that is all!
+tags: [efficiency]
+expected:
+  any_of: ["welcome", "glad", "happy to help"]
+budget:
+  max_tool_calls: 0
+  max_latency_s: 0.4
+  max_cost_usd: 0.003

@@ -1,0 +1,13 @@
+id: multi_hop_ticket_orders
+description: Two-hop task - ticket lookup gives the customer, then SQL counts their orders.
+input: How many orders has the customer on ticket T-1042 placed?
+tags: [ticket, sql, multi-hop]
+expected:
+  regex: '\b4 orders\b'
+trajectory:
+  required_tools: [lookup_ticket, run_sql]
+  sql_read_only: true
+budget:
+  max_tool_calls: 2
+  max_latency_s: 1.0
+  max_cost_usd: 0.008

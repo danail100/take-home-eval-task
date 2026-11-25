@@ -1,0 +1,15 @@
+id: unanswerable_wifi
+description: The answer is not in any source - the assistant must say so instead of guessing.
+input: What is the Wi-Fi password for the Berlin office?
+tags: [docs, unanswerable]
+expected:
+  any_of: ["don't know", "couldn't find", "could not find", "not able to find"]
+rubric:
+  criteria: >-
+    The information is not available in any tool. A correct answer clearly says the assistant
+    does not know or could not find it, and does not make up a password.
+  mock: {pass_if_any: ["don't know", "couldn't find"], fail_if_any: ["password is"]}
+budget:
+  max_tool_calls: 1
+  max_latency_s: 0.6
+  max_cost_usd: 0.005

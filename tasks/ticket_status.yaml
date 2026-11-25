@@ -1,0 +1,12 @@
+id: ticket_status
+description: Single-tool lookup of a ticket's status and assignee.
+input: What is the status of ticket T-1050 and who is it assigned to?
+tags: [ticket, single-tool]
+expected:
+  contains: ["waiting on customer", "Ravi Patel"]
+trajectory:
+  required_tools: [lookup_ticket]
+budget:
+  max_tool_calls: 1
+  max_latency_s: 0.6
+  max_cost_usd: 0.005
