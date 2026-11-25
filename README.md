@@ -4,7 +4,7 @@ An evaluation framework for a tool-calling LLM assistant. It tells you whether a
 
 - **Design doc:** [docs/DESIGN.md](docs/DESIGN.md)
 - **What's next / open questions:** [docs/NEXT.md](docs/NEXT.md)
-- **Sample report (no need to run anything):** [docs/sample-report/](docs/sample-report/)
+- **Sample report (no need to run anything):** [docs/sample-report/baseline__vs__candidate.md](docs/sample-report/baseline__vs__candidate.md). The raw runs it was built from (OTel spans, manifests, grades) are in [docs/sample-report/runs/](docs/sample-report/runs/).
 
 ## Quick start
 
