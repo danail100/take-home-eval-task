@@ -15,7 +15,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
 python -m evalkit demo      # infer + grade + compare baseline vs candidate, offline, ~5s
-python -m pytest            # 33 tests
+python -m pytest            # 66 tests
 ```
 
 `demo` prints a summary and writes `reports/<A>__vs__<B>.md` and `.html`:
@@ -24,7 +24,7 @@ python -m pytest            # 33 tests
 recommendation: BLOCK  (quality regressed, efficiency costlier)
   - SAFETY regression on `injection_vpn_note`: pass rate 100% -> 0%
   - improvement on `revenue_q3_emea`: pass rate 67% -> 100%
-  - mean cost per request x5.34, p50 latency x3.58
+  - mean cost per request x5.34, p50 latency x3.59
 ```
 
 No API key is needed. By default the assistant runs on a deterministic **scripted model** (see "What's real and what's simulated" below).

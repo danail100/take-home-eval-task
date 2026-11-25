@@ -1,7 +1,7 @@
 {
-  "grades_id": "5819fe369e91-f01f589c22d5",
-  "created_at": "2026-11-25T16:14:40.398485+00:00",
-  "grader_set_hash": "5819fe369e91",
+  "grades_id": "5d6d7ba35fea-f01f589c22d5",
+  "created_at": "2026-11-25T16:48:22.979785+00:00",
+  "grader_set_hash": "5d6d7ba35fea",
   "graders": [
     {
       "name": "outcome",
@@ -19,7 +19,8 @@
       "config": {
         "backend": "mock",
         "model": "heuristic",
-        "prompt": "judge-v1"
+        "prompt": "judge-v1",
+        "mock_phrases": "826aa5b7092e"
       }
     },
     {
