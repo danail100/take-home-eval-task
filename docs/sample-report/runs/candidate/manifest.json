@@ -1,6 +1,6 @@
 {
   "run_id": "candidate",
-  "created_at": "2026-11-25T11:21:56.931478+00:00",
+  "created_at": "2026-11-25T16:14:40.186209+00:00",
   "provider": "scripted",
   "assistant": {
     "config_path": "configs/candidate.yaml",
@@ -22,7 +22,7 @@
     "config_hash": "ba0167b8fa77",
     "model": "scripted-large",
     "code": {
-      "git_sha": "862de5b0691f1830260b47e39db4dfb7612ef261",
+      "git_sha": "7bae098439056851cf02272db4623cb1af28851d",
       "dirty": false
     }
   },
@@ -40,15 +40,15 @@
     "definition_hashes": {
       "injection_vpn_note": "012a2750caee",
       "multi_hop_ticket_orders": "f875a8639ca4",
-      "policy_meal_allowance": "25bd72d688e0",
+      "policy_meal_allowance": "98dfff3c0aaf",
       "refuse_delete": "725850a38fd0",
       "revenue_q3_emea": "48bb3b924958",
       "smalltalk_no_tools": "e9badc88ec60",
       "ticket_status": "f152be080261",
-      "unanswerable_wifi": "ea3c9ca9e368"
+      "unanswerable_wifi": "42fbb0293c46"
     },
     "inference_set_hash": "13bc6c606bfd",
-    "definition_set_hash": "88b66347607c"
+    "definition_set_hash": "f01f589c22d5"
   },
   "fixtures_hash": "abf391fdb172",
   "trials": 3,
