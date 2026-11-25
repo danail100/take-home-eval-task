@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from evalkit.compare import ComparabilityError, compare
 from evalkit.grade import grade
@@ -40,6 +41,27 @@ def _do_compare(args, run_a, run_b) -> int:
     return {"SHIP": 0, "REVIEW": 0, "BLOCK": 1}[c.recommendation] if args.gate else 0
 
 
+def _check_file(parser, path: str, what: str) -> None:
+    """Exit with a usage error if ``path`` is not an existing file; suggest configs/<name>.yaml."""
+    if Path(path).is_file():
+        return
+    if Path(path).is_dir():
+        msg = f"{what} is a directory, not a file: {path!r}"
+    else:
+        msg = f"{what} not found: {path!r}"
+    for cand in (Path("configs") / f"{path}.yaml", Path("configs") / f"{path}.yml"):
+        if cand.is_file():
+            msg += f" (did you mean {cand.as_posix()!r}?)"
+            break
+    parser.error(msg)
+
+
+def _check_dir(parser, path: str, what: str) -> None:
+    """Exit with a usage error if ``path`` is not an existing directory."""
+    if not Path(path).is_dir():
+        parser.error(f"{what} not found or not a directory: {path!r}")
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="evalkit", description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -52,46 +74,84 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     def common(sp):
-        sp.add_argument("--tasks", default="tasks")
-        sp.add_argument("--fixtures", default="fixtures")
-        sp.add_argument("--runs-dir", default="runs")
+        sp.add_argument("--tasks", default="tasks", metavar="DIR",
+                        help="directory of task definitions (default: %(default)s)")
+        sp.add_argument("--fixtures", default="fixtures", metavar="DIR",
+                        help="directory of tool fixtures used during inference (default: %(default)s)")
+        sp.add_argument("--runs-dir", default="runs", metavar="DIR",
+                        help="directory where new runs are written (default: %(default)s)")
+
+    def trials_provider(sp):
+        sp.add_argument("--trials", type=int, default=3, metavar="N",
+                        help="trials per task (default: %(default)s)")
+        sp.add_argument("--provider", default="scripted", choices=["scripted", "anthropic"],
+                        help="model backend: offline scripted models or the Anthropic API "
+                             "(default: %(default)s)")
+
+    def judge(sp):
+        sp.add_argument("--judge", default="auto", choices=["auto", "mock", "claude"],
+                        help="LLM-judge backend; auto picks claude if ANTHROPIC_API_KEY is set "
+                             "and the anthropic package is installed, else mock "
+                             "(default: %(default)s)")
+
+    def compare_opts(sp):
+        sp.add_argument("--allow-mismatch", action="store_true",
+                        help="compare only the tasks identical in both runs instead of refusing "
+                             "when graders, judge, tasks or fixtures differ")
+        sp.add_argument("--out", default="reports", metavar="DIR",
+                        help="directory for the Markdown and HTML report (default: %(default)s)")
+        sp.add_argument("--gate", action="store_true", help="exit 1 on BLOCK (for CI)")
 
     sp = sub.add_parser("infer", help="stage 1: run a config on all tasks and store OTel spans")
     common(sp)
-    sp.add_argument("config")
-    sp.add_argument("--trials", type=int, default=3)
-    sp.add_argument("--provider", default="scripted", choices=["scripted", "anthropic"])
-    sp.add_argument("--run-id")
-    sp.add_argument("--concurrency", type=int, default=8)
+    sp.add_argument("config", help="path to the agent config YAML, e.g. configs/baseline.yaml")
+    trials_provider(sp)
+    sp.add_argument("--run-id", help="name of the run directory under --runs-dir "
+                                     "(default: <config name>-<provider>-<timestamp>)")
+    sp.add_argument("--concurrency", type=int, default=8, metavar="N",
+                    help="max trials run in parallel (default: %(default)s)")
 
     sp = sub.add_parser("grade", help="stage 2: grade stored traces (no inference)")
     common(sp)
-    sp.add_argument("run_dir")
-    sp.add_argument("--graders", default=",".join(DEFAULT_GRADERS))
-    sp.add_argument("--judge", default="auto", choices=["auto", "mock", "claude"])
+    sp.add_argument("run_dir", help="run directory written by infer, e.g. runs/base")
+    sp.add_argument("--graders", default=",".join(DEFAULT_GRADERS), metavar="LIST",
+                    help="comma-separated graders to run (default: %(default)s)")
+    judge(sp)
     judge_cache(sp)
 
     sp = sub.add_parser("compare", help="stage 3: compare two graded runs and write a report")
     common(sp)
-    sp.add_argument("run_a")
-    sp.add_argument("run_b")
-    sp.add_argument("--allow-mismatch", action="store_true")
-    sp.add_argument("--out", default="reports")
-    sp.add_argument("--gate", action="store_true", help="exit 1 on BLOCK (for CI)")
+    sp.add_argument("run_a", help="graded run directory for variant A (the reference)")
+    sp.add_argument("run_b", help="graded run directory for variant B")
+    compare_opts(sp)
 
     sp = sub.add_parser("demo", help="infer + grade + compare baseline vs candidate")
     common(sp)
-    sp.add_argument("--a", default="configs/baseline.yaml")
-    sp.add_argument("--b", default="configs/candidate.yaml")
-    sp.add_argument("--trials", type=int, default=3)
-    sp.add_argument("--provider", default="scripted", choices=["scripted", "anthropic"])
-    sp.add_argument("--judge", default="auto", choices=["auto", "mock", "claude"])
+    sp.add_argument("--config-a", "--a", dest="a", metavar="CONFIG_A", default="configs/baseline.yaml",
+                    help="config file path for variant A (default: %(default)s)")
+    sp.add_argument("--config-b", "--b", dest="b", metavar="CONFIG_B", default="configs/candidate.yaml",
+                    help="config file path for variant B (default: %(default)s)")
+    trials_provider(sp)
+    judge(sp)
     judge_cache(sp)
-    sp.add_argument("--allow-mismatch", action="store_true")
-    sp.add_argument("--out", default="reports")
-    sp.add_argument("--gate", action="store_true")
+    compare_opts(sp)
 
     args = p.parse_args(argv)
+    sp = sub.choices[args.cmd]
+
+    _check_dir(sp, args.tasks, "tasks dir")
+    if args.cmd == "infer":
+        _check_file(sp, args.config, "config file")
+        _check_dir(sp, args.fixtures, "fixtures dir")
+    elif args.cmd == "grade":
+        _check_dir(sp, args.run_dir, "run dir")
+    elif args.cmd == "compare":
+        _check_dir(sp, args.run_a, "run dir A")
+        _check_dir(sp, args.run_b, "run dir B")
+    elif args.cmd == "demo":
+        _check_file(sp, args.a, "config file for --config-a")
+        _check_file(sp, args.b, "config file for --config-b")
+        _check_dir(sp, args.fixtures, "fixtures dir")
 
     if args.cmd == "infer":
         rd = infer(args.config, args.tasks, args.fixtures, args.runs_dir, args.trials, args.provider, args.run_id, args.concurrency)
